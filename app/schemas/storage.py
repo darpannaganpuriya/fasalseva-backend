@@ -1,4 +1,5 @@
 from typing import Optional
+from datetime import datetime
 from pydantic import BaseModel, Field
 
 
@@ -36,6 +37,7 @@ class BookingCreate(BaseModel):
     crop: str
     quantity_kg: int = Field(..., gt=0)
     duration_days: int = Field(..., gt=0)
+    arrival_date: str
 
 
 class BookingStatusUpdate(BaseModel):
@@ -76,5 +78,8 @@ class BookingResponse(BaseModel):
     duration_days: int
     status: str
     estimated_cost: float
+    arrival_date: str
+    created_at: datetime
+    updated_at: datetime
 
     model_config = {"from_attributes": True}

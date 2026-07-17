@@ -18,6 +18,12 @@ def update_profile(payload: UserUpdate, authorization: str | None = Header(defau
         user.phone = payload.phone
     if payload.company_name is not None:
         user.company_name = payload.company_name
+    if payload.state is not None:
+        user.state = payload.state
+    if payload.district is not None:
+        user.district = payload.district
+    if payload.preferred_language is not None:
+        user.preferred_language = payload.preferred_language
         
     db.commit()
     db.refresh(user)
@@ -28,5 +34,8 @@ def update_profile(payload: UserUpdate, authorization: str | None = Header(defau
         "name": user.name,
         "phone": user.phone,
         "role": user.role,
-        "company_name": user.company_name
+        "company_name": user.company_name,
+        "state": user.state,
+        "district": user.district,
+        "preferred_language": user.preferred_language
     }

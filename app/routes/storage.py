@@ -81,8 +81,12 @@ def create_booking(payload: BookingCreate, authorization: str | None = Header(de
     facility = db.query(Storage).filter(Storage.id == payload.facility_id).first()
     if not facility:
         raise HTTPException(status_code=404, detail="Storage not found")
+    
+    import uuid
+    new_id = f"bk_{uuid.uuid4().hex[:8]}"
+
     booking = Booking(
-        id=f"bk_{payload.facility_id}_{payload.quantity_kg}",
+        id=new_id,
         facility_id=payload.facility_id,
         owner_id=facility.owner_id,
         farmer_id=user.id,
@@ -90,6 +94,7 @@ def create_booking(payload: BookingCreate, authorization: str | None = Header(de
         crop=payload.crop,
         quantity_kg=payload.quantity_kg,
         duration_days=payload.duration_days,
+        arrival_date=payload.arrival_date,
         status="Pending",
         estimated_cost=payload.quantity_kg * facility.cost_per_kg_day * payload.duration_days,
     )
@@ -97,6 +102,16 @@ def create_booking(payload: BookingCreate, authorization: str | None = Header(de
     db.commit()
     db.refresh(booking)
     return booking
+
+@router.get("/bookings/farmer", response_model=list[BookingResponse])
+def get_farmer_bookings(authorization: str | None = Header(default=None), db: Session = Depends(get_db)) -> Any:
+    user = require_current_user(db, authorization)
+    return db.query(Booking).filter(Booking.farmer_id == user.id).order_by(Booking.created_at.desc()).all()
+
+@router.get("/bookings/storage-owner", response_model=list[BookingResponse])
+def get_owner_bookings(authorization: str | None = Header(default=None), db: Session = Depends(get_db)) -> Any:
+    user = require_current_user(db, authorization)
+    return db.query(Booking).filter(Booking.owner_id == user.id).order_by(Booking.created_at.desc()).all()
 
 
 @router.get("/bookings", response_model=list[BookingResponse])
@@ -110,6 +125,21 @@ def update_booking_status(booking_id: str, payload: BookingStatusUpdate, authori
     booking = db.query(Booking).filter(Booking.id == booking_id).first()
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
+    
+    # If accepted, we deduct capacity (a basic implementation)
+    if payload.status == "Accepted" and booking.status != "Accepted":
+        facility = db.query(Storage).filter(Storage.id == booking.facility_id).first()
+        if facility and facility.available_capacity_kg >= booking.quantity_kg:
+            facility.available_capacity_kg -= booking.quantity_kg
+        elif facility:
+            raise HTTPException(status_code=400, detail="Insufficient capacity")
+    
+    # If a booking is cancelled or rejected after being accepted, we should theoretically add capacity back
+    if payload.status in ["Rejected", "Completed"] and booking.status == "Accepted":
+        facility = db.query(Storage).filter(Storage.id == booking.facility_id).first()
+        if facility:
+            facility.available_capacity_kg += booking.quantity_kg
+
     booking.status = payload.status
     db.commit()
     db.refresh(booking)

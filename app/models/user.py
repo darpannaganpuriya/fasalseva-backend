@@ -12,6 +12,9 @@ class User(Base):
     password = Column(String, nullable=False)
     role = Column(String, nullable=False, default="farmer")
     company_name = Column(String, nullable=True)
+    state = Column(String, nullable=True)
+    district = Column(String, nullable=True)
+    preferred_language = Column(String, nullable=True, default="en")
     is_active = Column(Boolean, default=True)
 
     __table_args__ = (

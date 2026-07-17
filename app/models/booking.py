@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Float, Integer, String, ForeignKey
+from sqlalchemy import Column, Float, Integer, String, ForeignKey, DateTime
+from sqlalchemy.sql import func
 from app.database.database import Base
 
 
@@ -15,3 +16,6 @@ class Booking(Base):
     duration_days = Column(Integer, nullable=False)
     status = Column(String, default="Pending")
     estimated_cost = Column(Float, default=0.0)
+    arrival_date = Column(String, nullable=False, default="")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
