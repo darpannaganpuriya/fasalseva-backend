@@ -73,6 +73,11 @@ class BookingResponse(BaseModel):
     owner_id: str
     farmer_id: str
     farmer_name: str
+    farmer_phone: str | None = None
+    farmer_email: str | None = None
+    owner_name: str | None = None
+    owner_phone: str | None = None
+    owner_email: str | None = None
     crop: str
     quantity_kg: int
     duration_days: int

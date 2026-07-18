@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.database.database import get_db
 from app.models.booking import Booking
 from app.models.storage import Storage
+from app.models.user import User
 from app.schemas.storage import BookingCreate, BookingStatusUpdate, StorageCreate, StorageUpdate, StorageResponse, BookingResponse
 from app.services.auth_service import require_current_user
 
@@ -101,22 +102,37 @@ def create_booking(payload: BookingCreate, authorization: str | None = Header(de
     db.add(booking)
     db.commit()
     db.refresh(booking)
-    return booking
+    return _attach_contact_info(db, [booking])[0]
+
+def _attach_contact_info(db: Session, bookings: list[Booking]) -> list[Booking]:
+    for booking in bookings:
+        farmer = db.query(User).filter(User.id == booking.farmer_id).first()
+        owner = db.query(User).filter(User.id == booking.owner_id).first()
+        if farmer:
+            setattr(booking, 'farmer_phone', farmer.phone)
+            setattr(booking, 'farmer_email', farmer.email)
+        if owner:
+            setattr(booking, 'owner_name', owner.name)
+            setattr(booking, 'owner_phone', owner.phone)
+            setattr(booking, 'owner_email', owner.email)
+    return bookings
 
 @router.get("/bookings/farmer", response_model=list[BookingResponse])
 def get_farmer_bookings(authorization: str | None = Header(default=None), db: Session = Depends(get_db)) -> Any:
     user = require_current_user(db, authorization)
-    return db.query(Booking).filter(Booking.farmer_id == user.id).order_by(Booking.created_at.desc()).all()
+    bookings = db.query(Booking).filter(Booking.farmer_id == user.id).order_by(Booking.created_at.desc()).all()
+    return _attach_contact_info(db, bookings)
 
 @router.get("/bookings/storage-owner", response_model=list[BookingResponse])
 def get_owner_bookings(authorization: str | None = Header(default=None), db: Session = Depends(get_db)) -> Any:
     user = require_current_user(db, authorization)
-    return db.query(Booking).filter(Booking.owner_id == user.id).order_by(Booking.created_at.desc()).all()
-
+    bookings = db.query(Booking).filter(Booking.owner_id == user.id).order_by(Booking.created_at.desc()).all()
+    return _attach_contact_info(db, bookings)
 
 @router.get("/bookings", response_model=list[BookingResponse])
 def list_bookings(db: Session = Depends(get_db)) -> Any:
-    return db.query(Booking).all()
+    bookings = db.query(Booking).all()
+    return _attach_contact_info(db, bookings)
 
 
 @router.put("/bookings/{booking_id}", response_model=BookingResponse)
@@ -143,4 +159,4 @@ def update_booking_status(booking_id: str, payload: BookingStatusUpdate, authori
     booking.status = payload.status
     db.commit()
     db.refresh(booking)
-    return booking
+    return _attach_contact_info(db, [booking])[0]
